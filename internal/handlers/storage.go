@@ -98,14 +98,6 @@ func (h *StorageHandler) PresignUpload(c *gin.Context) {
 	})
 }
 
-// RegisterStorageRoutes mendaftarkan seluruh route storage ke router.
-func RegisterStorageRoutes(router *gin.Engine, storage *services.R2Storage) {
-	handler := NewStorageHandler(storage)
-
-	group := router.Group("/api/media")
-	group.POST("/presign-upload", handler.PresignUpload)
-}
-
 // buildObjectKey menghasilkan key yang aman dan unik, misalnya
 // "uploads/2026/10/22/9f3a1c2b-foto.jpg". Nama dari client tidak dipercaya
 // begitu saja: path dipangkas dan karakter aneh diganti.
