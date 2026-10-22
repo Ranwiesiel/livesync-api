@@ -14,6 +14,7 @@ type StorageConfig struct {
 	SecretAccessKey string
 	S3APIEndpoint   string
 	MongoDBURI      string
+	Port            string
 }
 
 // LoadEnv memuat .env ke environment proses, lalu mengembalikan konfigurasi
@@ -28,5 +29,6 @@ func LoadEnv() StorageConfig {
 		SecretAccessKey: os.Getenv("SECRET_ACCESS_KEY"),
 		S3APIEndpoint:   os.Getenv("S3_API_ENDPOINT"),
 		MongoDBURI:      os.Getenv("MONGODB_URI"),
+		Port:            os.Getenv("PORT"),
 	}
 }
