@@ -7,7 +7,7 @@ import (
     "time"
 
     "github.com/joho/godotenv"
-    "livesync-api/internal/database"
+    "github.com/Ranwiesiel/livesync-api/internal/database"
 )
 
 func main() {
