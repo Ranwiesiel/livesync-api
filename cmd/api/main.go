@@ -40,6 +40,7 @@ func main() {
 	r := router.New(
 		handlers.NewEventHandler(db.Collection("events")),
 		handlers.NewStorageHandler(store),
+		cfg.CORSOrigins,
 	)
 
 	log.Println("Server berjalan pada port:", cfg.Port)
