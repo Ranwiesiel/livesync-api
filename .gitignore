@@ -1,0 +1,33 @@
+# Build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/api
+/bin/
+
+# Test output
+*.test
+*.out
+coverage.*
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Hot reload (air) build artifacts
+tmp/
+
+# Delve debug binaries
+__debug_bin*
+debug
+
+# Environment files
+.env
+.env.local
+
+# Editors / OS
+.idea/
+.DS_Store
+Thumbs.db
