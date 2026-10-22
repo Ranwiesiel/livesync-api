@@ -2,33 +2,48 @@
 package main
 
 import (
-    "context"
-    "log"
-    "time"
+	"log"
+	"os"
 
-    "github.com/joho/godotenv"
-    "github.com/Ranwiesiel/livesync-api/internal/database"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+
+	"github.com/Ranwiesiel/livesync-api/internal/database"
+	"github.com/Ranwiesiel/livesync-api/internal/handlers"
 )
 
 func main() {
-    if err := godotenv.Load(); err != nil {
-        log.Println("File .env tidak ditemukan")
-    }
+	if err := godotenv.Load(); err != nil {
+		log.Println("File .env tidak ditemukan, menggunakan environment variable")
+	}
 
-    client, err := database.GetMongoClient()
-    if err != nil {
-        log.Fatal("Gagal menginisialisasi MongoDB:", err)
-    }
+	client, err := database.GetMongoClient()
+	if err != nil {
+		log.Fatal("Gagal menginisialisasi MongoDB:", err)
+	}
 
-    ctx, cancel := context.WithTimeout(
-        context.Background(),
-        10*time.Second,
-    )
-    defer cancel()
+	db := client.Database("Livesync")
+	log.Println("Database siap:", db.Name())
 
-    db := client.Database("Livesync")
+	collection := db.Collection("events")
+	eventHandler := handlers.NewEventHandler(collection)
 
-    log.Println("Database siap:", db.Name())
+	router := gin.Default()
 
-    _ = ctx
+	api := router.Group("/api")
+	{
+		api.POST("/events", eventHandler.CreateEvent)
+		api.GET("/events/:code", eventHandler.GetEvent)
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("Server berjalan pada port:", port)
+
+	if err := router.Run(":" + port); err != nil {
+		log.Fatal("Gagal menjalankan server:", err)
+	}
 }
