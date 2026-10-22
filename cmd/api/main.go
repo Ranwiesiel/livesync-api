@@ -44,6 +44,8 @@ func main() {
 
 	router := gin.Default()
 
+	handlers.RegisterStorageRoutes(router, store)
+
 	api := router.Group("/api")
 	{
 		api.POST("/events", eventHandler.CreateEvent)
