@@ -31,6 +31,11 @@ func main() {
 		log.Fatal("Gagal menginisialisasi R2: ", err)
 	}
 
+	photoHandler := handlers.NewPhotoHandler(
+		db.Collection("photos"),
+		db.Collection("events"),
+	)
+
 	names, err := store.ListBuckets(ctx)
 	if err != nil {
 		log.Fatal("Gagal mengakses R2: ", err)
@@ -40,6 +45,7 @@ func main() {
 	r := router.New(
 		handlers.NewEventHandler(db.Collection("events")),
 		handlers.NewStorageHandler(store),
+		photoHandler,
 		cfg.CORSOrigins,
 	)
 
