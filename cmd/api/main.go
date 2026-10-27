@@ -34,7 +34,6 @@ func main() {
 	photoHandler := handlers.NewPhotoHandler(
 		db.Collection("photos"),
 		db.Collection("events"),
-		cfg.R2PublicBaseURL,
 		store,
 	)
 

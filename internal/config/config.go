@@ -20,9 +20,6 @@ type Config struct {
 	SecretAccessKey string
 	S3APIEndpoint   string
 	Bucket          string
-	// R2PublicBaseURL adalah domain publik bucket, misalnya
-	// https://pub-xxxx.r2.dev. Dipakai untuk membangun URL foto.
-	R2PublicBaseURL string
 
 	// CORSOrigins adalah daftar origin browser yang boleh memanggil API.
 	CORSOrigins []string
@@ -44,8 +41,7 @@ func LoadEnv() Config {
 		AccessKeyID:     os.Getenv("ACCESS_KEY_ID"),
 		SecretAccessKey: os.Getenv("SECRET_ACCESS_KEY"),
 		S3APIEndpoint:   os.Getenv("S3_API_ENDPOINT"),
-		Bucket:          envOr("R2_BUCKET", "livesync-dev"),
-		R2PublicBaseURL: strings.TrimRight(os.Getenv("R2_PUBLIC_BASE_URL"), "/"),
+		Bucket: envOr("R2_BUCKET", "livesync-dev"),
 		CORSOrigins: splitList(envOr("CORS_ALLOWED_ORIGINS",
 			"http://localhost:5173,http://127.0.0.1:5173")),
 	}

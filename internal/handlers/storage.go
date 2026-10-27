@@ -121,7 +121,8 @@ func buildObjectKey(filename string) string {
 		name = name[len(name)-80:]
 	}
 
-	suffix := make([]byte, 4)
+	// 16 byte (128 bit) supaya key tidak bisa ditebak atau dienumerasi.
+	suffix := make([]byte, 16)
 	if _, err := rand.Read(suffix); err != nil {
 		// crypto/rand gagal berarti ada masalah serius di sistem.
 		panic(fmt.Sprintf("storage: gagal membuat nama acak: %v", err))

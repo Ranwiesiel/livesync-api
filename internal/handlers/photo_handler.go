@@ -23,9 +23,10 @@ import (
 // sembarangan di bucket.
 const objectKeyPrefix = "uploads/"
 
-// photoURLTTL membatasi umur URL GET bertanda tangan. Galeri mengambil ulang
-// daftar foto setiap halaman dibuka, jadi satu jam cukup.
-const photoURLTTL = time.Hour
+// photoURLTTL membatasi umur URL GET bertanda tangan. Dua puluh empat jam
+// cukup untuk satu hari acara, termasuk foto lazy-load yang baru di-scroll
+// beberapa jam setelah halaman dibuka.
+const photoURLTTL = 24 * time.Hour
 
 // photoURLSigner adalah bagian kecil dari storage yang dipakai handler foto.
 // Dengan interface ini handler tidak perlu tahu detail S3/R2.
@@ -34,34 +35,28 @@ type photoURLSigner interface {
 }
 
 type PhotoHandler struct {
-	photos        *mongo.Collection
-	events        *mongo.Collection
-	publicBaseURL string
-	storage       photoURLSigner
+	photos  *mongo.Collection
+	events  *mongo.Collection
+	storage photoURLSigner
 }
 
 func NewPhotoHandler(
 	photos *mongo.Collection,
 	events *mongo.Collection,
-	publicBaseURL string,
 	storage photoURLSigner,
 ) *PhotoHandler {
 	return &PhotoHandler{
-		photos:        photos,
-		events:        events,
-		publicBaseURL: publicBaseURL,
-		storage:       storage,
+		photos:  photos,
+		events:  events,
+		storage: storage,
 	}
 }
 
 type ConfirmPhotoRequest struct {
 	EventID    string `json:"event_id" binding:"required"`
 	StorageKey string `json:"storage_key" binding:"required"`
-	// URL hanya dipakai sebagai fallback kalau R2_PUBLIC_BASE_URL belum
-	// diatur. Kalau base URL tersedia, server yang membangun URL sendiri.
-	URL      string `json:"url"`
-	BlurHash string `json:"blur_hash"`
-	Uploader string `json:"uploader"`
+	BlurHash   string `json:"blur_hash"`
+	Uploader   string `json:"uploader"`
 }
 
 // validateStorageKey memastikan key berasal dari folder upload dan tidak
@@ -85,25 +80,6 @@ func validateStorageKey(key string) error {
 	}
 
 	return nil
-}
-
-// resolvePhotoURL membangun URL publik dari storage key. Client tidak perlu
-// tahu domain bucket, dan URL yang dikirim client tidak dipercaya selama
-// R2_PUBLIC_BASE_URL tersedia.
-func resolvePhotoURL(baseURL, storageKey, fallback string) (string, error) {
-	if err := validateStorageKey(storageKey); err != nil {
-		return "", err
-	}
-
-	if base := strings.TrimRight(strings.TrimSpace(baseURL), "/"); base != "" {
-		return base + "/" + strings.TrimLeft(storageKey, "/"), nil
-	}
-
-	if fallback = strings.TrimSpace(fallback); fallback != "" {
-		return fallback, nil
-	}
-
-	return "", errors.New("URL foto tidak bisa ditentukan: R2_PUBLIC_BASE_URL kosong")
 }
 
 // signPhotoURLs mengganti URL tersimpan dengan URL GET bertanda tangan yang
@@ -150,13 +126,6 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 		return
 	}
 
-	photoURL, err := resolvePhotoURL(h.publicBaseURL, req.StorageKey, req.URL)
-	if err != nil {
-		response.Failure(c, http.StatusInternalServerError,
-			"URL foto belum dikonfigurasi di server")
-		return
-	}
-
 	eventID, err := bson.ObjectIDFromHex(req.EventID)
 	if err != nil {
 		response.Failure(c, http.StatusBadRequest, "Event ID tidak valid")
@@ -181,6 +150,13 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 		return
 	}
 
+	signedURL, err := h.storage.PresignGet(ctx, req.StorageKey, photoURLTTL)
+	if err != nil {
+		response.Failure(c, http.StatusInternalServerError,
+			"Gagal menyiapkan URL foto")
+		return
+	}
+
 	// Konfirmasi bisa terpanggil ulang (retry jaringan, tombol ditekan dua
 	// kali). storage_key unik per upload, jadi dokumen lama dikembalikan
 	// tanpa membuat duplikat.
@@ -190,6 +166,7 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 	}).Decode(&existing)
 
 	if err == nil {
+		existing.URL = signedURL
 		response.Success(c, http.StatusOK, existing)
 		return
 	}
@@ -203,7 +180,7 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 		ID:         bson.NewObjectID(),
 		EventID:    eventID,
 		StorageKey: req.StorageKey,
-		URL:        photoURL,
+		URL:        signedURL,
 		BlurHash:   req.BlurHash,
 		Uploader:   req.Uploader,
 		CreatedAt:  time.Now().UTC(),
