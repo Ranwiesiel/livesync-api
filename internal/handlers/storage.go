@@ -128,6 +128,6 @@ func buildObjectKey(filename string) string {
 	}
 
 	now := time.Now().UTC()
-	return fmt.Sprintf("uploads/%d/%02d/%02d/%s-%s",
+	return fmt.Sprintf("%s%d/%02d/%02d/%s-%s", objectKeyPrefix,
 		now.Year(), now.Month(), now.Day(), hex.EncodeToString(suffix), name)
 }

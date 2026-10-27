@@ -98,3 +98,25 @@ func (r *R2Storage) PresignPut(ctx context.Context, key, contentType string, ttl
 		ExpiresAt: time.Now().UTC().Add(ttl),
 	}, nil
 }
+
+// PresignGet menghasilkan URL GET sementara untuk satu object. Ini dipakai
+// saat menampilkan galeri supaya foto tetap bisa diakses meskipun bucket
+// tidak punya domain publik (atau domainnya diblokir jaringan client).
+func (r *R2Storage) PresignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	presigner := s3.NewPresignClient(r.Client)
+
+	req, err := presigner.PresignGetObject(ctx,
+		&s3.GetObjectInput{
+			Bucket: aws.String(r.Bucket),
+			Key:    aws.String(key),
+		},
+		func(o *s3.PresignOptions) {
+			o.Expires = ttl
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("storage: presign get: %w", err)
+	}
+
+	return req.URL, nil
+}
