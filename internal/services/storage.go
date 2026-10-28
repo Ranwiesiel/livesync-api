@@ -1,8 +1,10 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -119,4 +121,51 @@ func (r *R2Storage) PresignGet(ctx context.Context, key string, ttl time.Duratio
 	}
 
 	return req.URL, nil
+}
+
+// GetObject mengambil isi object sekaligus Content-Type yang tersimpan.
+func (r *R2Storage) GetObject(ctx context.Context, key string) ([]byte, string, error) {
+	out, err := r.Client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(r.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("storage: get object %q: %w", key, err)
+	}
+	defer out.Body.Close()
+
+	data, err := io.ReadAll(out.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("storage: baca object %q: %w", key, err)
+	}
+
+	return data, aws.ToString(out.ContentType), nil
+}
+
+// PutObject mengunggah data ke bucket dengan Content-Type tertentu.
+func (r *R2Storage) PutObject(ctx context.Context, key string, data []byte, contentType string) error {
+	_, err := r.Client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(r.Bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(data),
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: put object %q: %w", key, err)
+	}
+
+	return nil
+}
+
+// DeleteObject menghapus satu object dari bucket.
+func (r *R2Storage) DeleteObject(ctx context.Context, key string) error {
+	_, err := r.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(r.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: delete object %q: %w", key, err)
+	}
+
+	return nil
 }

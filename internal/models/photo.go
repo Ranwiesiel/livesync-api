@@ -10,7 +10,7 @@ type Photo struct {
 	ID           bson.ObjectID `bson:"_id,omitempty" json:"id"`
 	EventID      bson.ObjectID `bson:"event_id" json:"event_id"`
 	StorageKey   string        `bson:"storage_key" json:"storage_key"`
-	URL          string        `bson:"url" json:"url"`
+	URL          string        `bson:"-" json:"url"`
 	ThumbnailURL string        `bson:"thumbnail_url,omitempty" json:"thumbnail_url,omitempty"`
 	Width        int           `bson:"width,omitempty" json:"width,omitempty"`
 	Height       int           `bson:"height,omitempty" json:"height,omitempty"`
