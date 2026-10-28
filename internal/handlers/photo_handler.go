@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -195,7 +196,19 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 	response.Success(c, http.StatusCreated, photo)
 }
 
-// GET /api/events/:id/photos
+
+const (
+	defaultPhotoLimit = int64(20)
+	maxPhotoLimit     = int64(100)
+)
+
+type PaginatedPhotosResponse struct {
+	Items      []models.Photo `json:"items"`
+	NextCursor string         `json:"next_cursor"`
+	HasMore    bool           `json:"has_more"`
+}
+
+// GET /api/events/:id/photos?cursor=<photo_id>&limit=20
 func (h *PhotoHandler) GetEventPhotos(c *gin.Context) {
 	eventID, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -203,50 +216,92 @@ func (h *PhotoHandler) GetEventPhotos(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	limit := defaultPhotoLimit
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsedLimit, err := strconv.ParseInt(rawLimit, 10, 64)
+		if err != nil || parsedLimit < 1 {
+			response.Failure(c, http.StatusBadRequest, "Limit harus berupa angka positif")
+			return
+		}
+
+		limit = parsedLimit
+		if limit > maxPhotoLimit {
+			limit = maxPhotoLimit
+		}
+	}
+
+	filter := bson.D{
+		{Key: "event_id", Value: eventID},
+	}
+
+	if rawCursor := c.Query("cursor"); rawCursor != "" {
+		cursorID, err := bson.ObjectIDFromHex(rawCursor)
+		if err != nil {
+			response.Failure(c, http.StatusBadRequest, "Cursor foto tidak valid")
+			return
+		}
+
+		filter = append(filter, bson.E{
+			Key: "_id",
+			Value: bson.D{
+				{Key: "$lt", Value: cursorID},
+			},
+		})
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	// Memastikan event memang ada.
 	err = h.events.FindOne(ctx, bson.D{
 		{Key: "_id", Value: eventID},
 	}).Err()
 
-	if err == mongo.ErrNoDocuments {
+	if errors.Is(err, mongo.ErrNoDocuments) {
 		response.Failure(c, http.StatusNotFound, "Event tidak ditemukan")
 		return
 	}
 	if err != nil {
-		response.Failure(c, http.StatusInternalServerError,
-			"Gagal memeriksa event")
+		response.Failure(c, http.StatusInternalServerError, "Gagal memeriksa event")
 		return
 	}
 
 	cursor, err := h.photos.Find(
 		ctx,
-		bson.D{{Key: "event_id", Value: eventID}},
-		options.Find().SetSort(bson.D{
-			{Key: "created_at", Value: -1},
-		}),
+		filter,
+		options.Find().
+			SetSort(bson.D{{Key: "_id", Value: -1}}).
+			SetLimit(limit + 1),
 	)
 	if err != nil {
-		response.Failure(c, http.StatusInternalServerError,
-			"Gagal mengambil foto event")
+		response.Failure(c, http.StatusInternalServerError, "Gagal mengambil foto event")
 		return
 	}
 	defer cursor.Close(ctx)
 
-	photos := make([]models.Photo, 0)
+	photos := make([]models.Photo, 0, limit+1)
 	if err := cursor.All(ctx, &photos); err != nil {
-		response.Failure(c, http.StatusInternalServerError,
-			"Gagal membaca data foto")
+		response.Failure(c, http.StatusInternalServerError, "Gagal membaca data foto")
 		return
+	}
+
+	hasMore := int64(len(photos)) > limit
+	if hasMore {
+		photos = photos[:limit]
+	}
+
+	nextCursor := ""
+	if hasMore && len(photos) > 0 {
+		nextCursor = photos[len(photos)-1].ID.Hex()
 	}
 
 	if err := signPhotoURLs(ctx, h.storage, photoURLTTL, photos); err != nil {
-		response.Failure(c, http.StatusInternalServerError,
-			"Gagal menyiapkan URL foto")
+		response.Failure(c, http.StatusInternalServerError, "Gagal menyiapkan URL foto")
 		return
 	}
 
-	response.Success(c, http.StatusOK, photos)
+	response.Success(c, http.StatusOK, PaginatedPhotosResponse{
+		Items:      photos,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	})
 }
