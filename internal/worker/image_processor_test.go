@@ -55,9 +55,9 @@ func TestTransformResizesToThumbnailWidth(t *testing.T) {
 
 func TestThumbKeyKeepsDirectoryAndPrefixesName(t *testing.T) {
 	cases := []struct{ in, want string }{
-		{"uploads/2026/10/22/abc-foto.jpg", "uploads/2026/10/22/thumb_abc-foto.jpg"},
-		{"abc-foto.png", "thumb_abc-foto.jpg"},
-		{"tanpa-ekstensi", "thumb_tanpa-ekstensi.jpg"},
+		{"uploads/2026/10/22/abc-foto.jpg", "thumbnails/2026/10/22/thumb_abc-foto.jpg"},
+		{"abc-foto.png", "thumbnails/thumb_abc-foto.jpg"},
+		{"tanpa-ekstensi", "thumbnails/thumb_tanpa-ekstensi.jpg"},
 	}
 
 	for _, c := range cases {

@@ -11,8 +11,8 @@ import (
 	"github.com/disintegration/imaging"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
-	"github.com/Ranwiesiel/livesync-api/internal/services"
 	"github.com/Ranwiesiel/livesync-api/internal/models"
+	"github.com/Ranwiesiel/livesync-api/internal/services"
 )
 
 const (
@@ -68,19 +68,20 @@ func transform(original []byte) ([]byte, string, int, int, error) {
 	return buf.Bytes(), hash, bounds.Dx(), bounds.Dy(), nil
 }
 
-// thumbKey menaruh thumbnail di folder yang sama dengan file asli.
-// Menggunakan path karena key object R2 bukan path filesystem.
+// thumbKey menaruh thumbnail di prefix terpisah, mengikuti path file aslinya.
+// Prefix terpisah penting supaya aturan lifecycle bisa berbeda dari foto asli
+// dan thumbnail tidak lolos validasi sebagai foto asli.
 func thumbKey(originalKey string) string {
-	dir := path.Dir(originalKey)
-	name := path.Base(originalKey)
-	name = strings.TrimSuffix(name, path.Ext(name))
+	k := strings.TrimPrefix(originalKey, "uploads/")
 
-	key := "thumb_" + name + ".jpg"
+	dir := path.Dir(k)
+	name := strings.TrimSuffix(path.Base(k), path.Ext(k))
+
 	if dir == "." {
-		return key
+		return "thumbnails/thumb_" + name + ".jpg"
 	}
 
-	return dir + "/" + key
+	return "thumbnails/" + dir + "/thumb_" + name + ".jpg"
 }
 
 // Result adalah hasil pemrosesan satu foto.
