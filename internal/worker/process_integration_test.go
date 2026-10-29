@@ -1,3 +1,4 @@
+
 package worker
 
 import (
@@ -28,9 +29,12 @@ func liveConfig(t *testing.T) appconfig.Config {
 	if cfg.Bucket == "" {
 		cfg.Bucket = "livesync-dev"
 	}
-	if cfg.AccessKeyID == "" || cfg.SecretAccessKey == "" || cfg.S3APIEndpoint == "" {
+	if cfg.AccessKeyID == "" ||
+		cfg.SecretAccessKey == "" ||
+		cfg.S3APIEndpoint == "" {
 		t.Skip("kredensial R2 tidak diatur")
 	}
+
 	return cfg
 }
 
@@ -49,22 +53,41 @@ func TestProcessRoundTrip(t *testing.T) {
 
 	key := fmt.Sprintf("uploads/_test/%d.jpg", time.Now().UnixNano())
 
-	original := imaging.New(1200, 800, color.NRGBA{R: 20, G: 120, B: 200, A: 255})
+	original := imaging.New(
+		1200,
+		800,
+		color.NRGBA{R: 20, G: 120, B: 200, A: 255},
+	)
+
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, original, &jpeg.Options{Quality: 90}); err != nil {
+	if err := jpeg.Encode(
+		&buf,
+		original,
+		&jpeg.Options{Quality: 90},
+	); err != nil {
 		t.Fatalf("encode asli: %v", err)
 	}
+
 	if err := store.PutObject(ctx, key, buf.Bytes(), "image/jpeg"); err != nil {
 		t.Fatalf("upload asli: %v", err)
 	}
-	defer store.DeleteObject(ctx, key)
+	defer func() {
+		if err := store.DeleteObject(ctx, key); err != nil {
+			t.Logf("gagal menghapus foto asli: %v", err)
+		}
+	}()
 
 	processor := New(store, nil)
 	res, err := processor.Process(ctx, key)
 	if err != nil {
 		t.Fatalf("Process: %v", err)
 	}
-	defer store.DeleteObject(ctx, res.ThumbKey)
+
+	defer func() {
+		if err := store.DeleteObject(ctx, res.ThumbKey); err != nil {
+			t.Logf("gagal menghapus thumbnail: %v", err)
+		}
+	}()
 
 	thumb, contentType, err := store.GetObject(ctx, res.ThumbKey)
 	if err != nil {
@@ -74,9 +97,27 @@ func TestProcessRoundTrip(t *testing.T) {
 		t.Fatalf("content-type thumbnail = %q", contentType)
 	}
 	if len(thumb) != res.SizeBytes {
-		t.Fatalf("ukuran thumbnail %d, result %d", len(thumb), res.SizeBytes)
+		t.Fatalf(
+			"ukuran thumbnail %d, result %d",
+			len(thumb),
+			res.SizeBytes,
+		)
 	}
 
-	t.Logf("key=%s thumb=%s blurhash=%s (%d char) %dx%d %d bytes",
-		key, res.ThumbKey, res.BlurHash, len(res.BlurHash), res.Width, res.Height, res.SizeBytes)
+	// Gambar sintetis yang dibuat dalam test ini tidak memiliki EXIF.
+	if res.Exif != nil {
+		t.Errorf("EXIF seharusnya nil untuk gambar tanpa EXIF, dapat %v", res.Exif)
+	}
+
+	t.Logf(
+		"key=%s thumb=%s blurhash=%s (%d char) %dx%d %d bytes exif=%+v",
+		key,
+		res.ThumbKey,
+		res.BlurHash,
+		len(res.BlurHash),
+		res.Width,
+		res.Height,
+		res.SizeBytes,
+		res.Exif,
+	)
 }

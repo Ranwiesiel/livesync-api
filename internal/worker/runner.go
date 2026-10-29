@@ -1,3 +1,4 @@
+
 package worker
 
 import (
@@ -21,7 +22,10 @@ func (p *Processor) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case job := <-JobQueue:
+		case job, ok := <-JobQueue:
+			if !ok {
+				return
+			}
 			p.handle(ctx, job)
 		}
 	}
@@ -29,6 +33,7 @@ func (p *Processor) loop(ctx context.Context) {
 
 // handle memproses satu job lalu menyimpan hasilnya ke database.
 func (p *Processor) handle(ctx context.Context, job Job) {
+	// Process sekarang menerima ID foto dan storage key.
 	res, err := p.Process(ctx, job.Key)
 	if err != nil {
 		log.Printf("worker: gagal memproses %s: %v", job.Key, err)
@@ -41,10 +46,15 @@ func (p *Processor) handle(ctx context.Context, job Job) {
 
 	thumbURL, err := p.storage.PresignGet(ctx, res.ThumbKey, thumbURLTTL)
 	if err != nil {
-		log.Printf("worker: gagal menandatangani %s: %v", res.ThumbKey, err)
+		log.Printf(
+			"worker: gagal menandatangani %s: %v",
+			res.ThumbKey,
+			err,
+		)
 		return
 	}
 
+	// Gabungkan hasil pemrosesan gambar dan EXIF dalam satu update.
 	fields := map[string]any{
 		"thumbnail_url": thumbURL,
 		"blur_hash":     res.BlurHash,
@@ -52,7 +62,18 @@ func (p *Processor) handle(ctx context.Context, job Job) {
 		"height":        res.Height,
 	}
 
-	if err := p.update(ctx, job.PhotoID, fields); err != nil {
-		log.Printf("worker: gagal update foto %s: %v", job.PhotoID.Hex(), err)
+	if res.Exif != nil {
+		fields["exif"] = res.Exif
 	}
+
+	if err := p.update(ctx, job.PhotoID, fields); err != nil {
+		log.Printf(
+			"worker: gagal update foto %s: %v",
+			job.PhotoID.Hex(),
+			err,
+		)
+		return
+	}
+
+	log.Printf("worker: foto %s berhasil diproses", job.PhotoID.Hex())
 }

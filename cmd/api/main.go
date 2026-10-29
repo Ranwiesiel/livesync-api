@@ -1,9 +1,11 @@
+
 package main
 
 import (
 	"context"
 	"log"
 	"time"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -34,8 +36,10 @@ func main() {
 		log.Fatal("Gagal menginisialisasi R2: ", err)
 	}
 
+	photos := db.Collection("photos")
+
 	photoHandler := handlers.NewPhotoHandler(
-		db.Collection("photos"),
+		photos,
 		db.Collection("events"),
 		store,
 	)
@@ -46,13 +50,37 @@ func main() {
 	}
 	log.Println("R2 siap, bucket:", names)
 
-	photos := db.Collection("photos")
+	// Updater worker: memperbarui field tertentu tanpa mengganti
+	// seluruh dokumen foto.
+	updatePhoto := func(
+		ctx context.Context,
+		id bson.ObjectID,
+		fields map[string]any,
+	) error {
+		result, err := photos.UpdateByID(
+			ctx,
+			id,
+			bson.M{"$set": fields},
+		)
+		if err != nil {
+			return err
+		}
 
-	processor := worker.New(store, func(ctx context.Context, id bson.ObjectID, fields map[string]any) error {
-		_, err := photos.UpdateByID(ctx, id, bson.M{"$set": fields})
-		return err
-	})
-	processor.Run(context.Background(), 4)
+		if result.MatchedCount == 0 {
+			return fmt.Errorf("foto dengan ID %s tidak ditemukan", id.Hex())
+		}
+
+		return nil
+	}
+
+	processor := worker.New(store, updatePhoto)
+
+	// Context terpisah agar worker tidak berhenti setelah context
+	// inisialisasi 10 detik di atas kedaluwarsa.
+	workerCtx, stopWorkers := context.WithCancel(context.Background())
+	defer stopWorkers()
+
+	processor.Run(workerCtx, 4)
 	log.Println("Worker gambar berjalan: 4 goroutine")
 
 	r := router.New(
