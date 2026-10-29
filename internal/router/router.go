@@ -21,6 +21,7 @@ func New(event *handlers.EventHandler, storage *handlers.StorageHandler, photo *
 		api.GET("/events/:code", event.GetEvent)
 
 		api.POST("/media/confirm", photo.ConfirmPhoto)
+		api.POST("/media/confirm-batch", photo.ConfirmBatch)
 		api.GET("/media/events/:id/photos", photo.GetEventPhotos)
 
 		media := api.Group("/media")
