@@ -5,11 +5,14 @@ import (
 	"log"
 	"time"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
+
 	"github.com/Ranwiesiel/livesync-api/internal/config"
 	"github.com/Ranwiesiel/livesync-api/internal/database"
 	"github.com/Ranwiesiel/livesync-api/internal/handlers"
 	"github.com/Ranwiesiel/livesync-api/internal/router"
 	"github.com/Ranwiesiel/livesync-api/internal/services"
+	"github.com/Ranwiesiel/livesync-api/internal/worker"
 )
 
 func main() {
@@ -42,6 +45,15 @@ func main() {
 		log.Fatal("Gagal mengakses R2: ", err)
 	}
 	log.Println("R2 siap, bucket:", names)
+
+	photos := db.Collection("photos")
+
+	processor := worker.New(store, func(ctx context.Context, id bson.ObjectID, fields map[string]any) error {
+		_, err := photos.UpdateByID(ctx, id, bson.M{"$set": fields})
+		return err
+	})
+	processor.Run(context.Background(), 4)
+	log.Println("Worker gambar berjalan: 4 goroutine")
 
 	r := router.New(
 		handlers.NewEventHandler(db.Collection("events")),

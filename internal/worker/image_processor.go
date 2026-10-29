@@ -9,6 +9,7 @@ import (
 
 	"github.com/bbrks/go-blurhash"
 	"github.com/disintegration/imaging"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/Ranwiesiel/livesync-api/internal/services"
 )
@@ -71,13 +72,17 @@ type Result struct {
 	SizeBytes int
 }
 
+// UpdateFunc menyimpan hasil pemrosesan ke database.
+type UpdateFunc func(ctx context.Context, id bson.ObjectID, fields map[string]any) error
+
 // Processor mengubah foto asli di R2 menjadi thumbnail dan blurhash.
 type Processor struct {
 	storage *services.R2Storage
+	update  UpdateFunc
 }
 
-func New(storage *services.R2Storage) *Processor {
-	return &Processor{storage: storage}
+func New(storage *services.R2Storage, update UpdateFunc) *Processor {
+	return &Processor{storage: storage, update: update}
 }
 
 // Process mengambil object asli dari R2, membuat thumbnail, lalu mengunggah

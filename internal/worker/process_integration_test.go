@@ -59,7 +59,7 @@ func TestProcessRoundTrip(t *testing.T) {
 	}
 	defer store.DeleteObject(ctx, key)
 
-	processor := New(store)
+	processor := New(store, nil)
 	res, err := processor.Process(ctx, key)
 	if err != nil {
 		t.Fatalf("Process: %v", err)

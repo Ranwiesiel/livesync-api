@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/Ranwiesiel/livesync-api/internal/models"
 	"github.com/Ranwiesiel/livesync-api/internal/response"
+	"github.com/Ranwiesiel/livesync-api/internal/worker"
 )
 
 // objectKeyPrefix adalah folder tempat presign menaruh object. Confirm hanya
@@ -193,7 +195,13 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusCreated, photo)
+	// Metadata awal sudah tersimpan; thumbnail dibuat di latar belakang supaya
+	// React tidak menunggu proses gambar.
+	if !worker.Enqueue(worker.Job{PhotoID: photo.ID, Key: photo.StorageKey}) {
+		log.Printf("antrean penuh, foto %s belum diproses", photo.ID.Hex())
+	}
+
+	response.Success(c, http.StatusOK, photo)
 }
 
 
