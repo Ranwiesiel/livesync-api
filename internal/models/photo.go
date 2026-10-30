@@ -1,9 +1,9 @@
 package models
 
 import (
-	"time"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -30,12 +30,13 @@ func (e *EXIFMetadata) CameraModelName() string {
 }
 
 type EXIFMetadata struct {
-    CameraMake       string   `bson:"camera_make,omitempty" json:"camera_make,omitempty"`
-    CameraModel      string   `bson:"camera_model,omitempty" json:"camera_model,omitempty"`
-    DateTimeOriginal string   `bson:"date_time_original,omitempty" json:"date_time_original,omitempty"`
-    ISO              *int     `bson:"iso,omitempty" json:"iso,omitempty"`
-    Aperture         *float64 `bson:"aperture,omitempty" json:"aperture,omitempty"`
-    ShutterSpeed     string   `bson:"shutter_speed,omitempty" json:"shutter_speed,omitempty"`
+	CameraMake       string   `bson:"camera_make,omitempty" json:"camera_make,omitempty"`
+	CameraModel      string   `bson:"camera_model,omitempty" json:"camera_model,omitempty"`
+	LensModel        string   `bson:"lens_model,omitempty" json:"lens_model,omitempty"`
+	DateTimeOriginal string   `bson:"date_time_original,omitempty" json:"date_time_original,omitempty"`
+	ISO              *int     `bson:"iso,omitempty" json:"iso,omitempty"`
+	Aperture         *float64 `bson:"aperture,omitempty" json:"aperture,omitempty"`
+	ShutterSpeed     string   `bson:"shutter_speed,omitempty" json:"shutter_speed,omitempty"`
 }
 
 type Photo struct {

@@ -29,6 +29,11 @@ func extractEXIF(original []byte) (*models.EXIFMetadata, error) {
 		result.CameraModel = cleanEXIFString(tag.String())
 	}
 
+	// LensModel: lensa yang dipakai saat memotret.
+	if tag, err := x.Get(exif.LensModel); err == nil {
+		result.LensModel = cleanEXIFString(tag.String())
+	}
+
 	// DateTimeOriginal: waktu pengambilan foto.
 	if tag, err := x.Get(exif.DateTimeOriginal); err == nil {
 		result.DateTimeOriginal = cleanEXIFString(tag.String())
@@ -60,6 +65,7 @@ func extractEXIF(original []byte) (*models.EXIFMetadata, error) {
 	// Jangan menyimpan sub-document kosong.
 	if result.CameraMake == "" &&
 		result.CameraModel == "" &&
+		result.LensModel == "" &&
 		result.DateTimeOriginal == "" &&
 		result.ISO == nil &&
 		result.Aperture == nil &&
