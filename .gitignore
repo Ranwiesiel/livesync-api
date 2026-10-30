@@ -31,3 +31,5 @@ debug
 .idea/
 .DS_Store
 Thumbs.db
+
+*.test.*
