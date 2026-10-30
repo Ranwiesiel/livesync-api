@@ -31,6 +31,11 @@ func main() {
 	db := client.Database(cfg.MongoDatabase)
 	log.Println("Database siap:", db.Name())
 
+	if err := database.EnsureIndexes(ctx, db); err != nil {
+		log.Fatal("Gagal membuat index: ", err)
+	}
+	log.Println("Index database siap")
+
 	store, err := services.NewR2(ctx, cfg)
 	if err != nil {
 		log.Fatal("Gagal menginisialisasi R2: ", err)
