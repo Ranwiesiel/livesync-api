@@ -33,3 +33,5 @@ debug
 Thumbs.db
 
 *.test.*
+*_test.go
+testdata/
