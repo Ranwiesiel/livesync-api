@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"path"
 	"strings"
 
@@ -26,9 +27,33 @@ const (
 	blurHashY = 3
 )
 
+// Batas ukuran masukan, supaya file raksasa tidak menghabiskan RAM.
+const (
+	// maxInputBytes membatasi ukuran file asli yang diproses (20 MB).
+	maxInputBytes = 20 << 20
+
+	// maxPixels membatasi jumlah piksel; 50 MP setara foto 8660x5773.
+	maxPixels = 50_000_000
+)
+
+// tooLarge melaporkan apakah dimensi gambar melewati batas piksel.
+func tooLarge(width, height int) bool {
+	return width*height > maxPixels
+}
+
 // transform mengubah gambar asli menjadi thumbnail JPEG dan BlurHash.
 // Fungsi ini tidak menyentuh jaringan maupun disk.
 func transform(original []byte) ([]byte, string, int, int, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(original))
+	if err != nil {
+		return nil, "", 0, 0, fmt.Errorf("worker: baca header gambar: %w", err)
+	}
+	if tooLarge(cfg.Width, cfg.Height) {
+		return nil, "", 0, 0, fmt.Errorf(
+			"worker: gambar terlalu besar (%dx%d, maks %d piksel)",
+			cfg.Width, cfg.Height, maxPixels)
+	}
+
 	img, err := imaging.Decode(
 		bytes.NewReader(original),
 		imaging.AutoOrientation(true),
@@ -136,6 +161,13 @@ func (p *Processor) Process(
 			"worker: object %q bukan gambar (%s)",
 			key,
 			contentType,
+		)
+	}
+
+	if len(original) > maxInputBytes {
+		return Result{}, fmt.Errorf(
+			"worker: object %q terlalu besar (%d bytes, maks %d)",
+			key, len(original), maxInputBytes,
 		)
 	}
 
