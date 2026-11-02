@@ -24,9 +24,6 @@ var allowedContentTypes = map[string]bool{
 	"image/jpeg": true,
 	"image/png":  true,
 	"image/webp": true,
-	"image/gif":  true,
-	"image/heic": true,
-	"image/heif": true,
 }
 
 // StorageHandler melayani endpoint yang berhubungan dengan Cloudflare R2.
