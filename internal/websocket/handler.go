@@ -1,4 +1,3 @@
-
 package websocket
 
 import (
@@ -12,7 +11,9 @@ import (
 
 var eventCodePattern = regexp.MustCompile(`^\d{6}$`)
 
-type EventValidator func(r *http.Request, code string) (bool, error)
+// EventValidator mengembalikan ID event (bukan kode) untuk dijadikan
+// key room. String kosong berarti event tidak ditemukan/tidak aktif.
+type EventValidator func(r *http.Request, code string) (string, error)
 
 type Handler struct {
 	hub       *Hub
@@ -96,14 +97,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	valid, err := h.validator(r, code)
+	eventID, err := h.validator(r, code)
 	if err != nil {
 		http.Error(w, "Gagal memvalidasi event",
 			http.StatusInternalServerError)
 		return
 	}
 
-	if !valid {
+	if eventID == "" {
 		http.Error(w, "Event tidak ditemukan atau tidak aktif",
 			http.StatusNotFound)
 		return
@@ -114,7 +115,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := NewClient(h.hub, conn, code)
+	client := NewClient(h.hub, conn, eventID)
 
 	h.hub.register <- client
 

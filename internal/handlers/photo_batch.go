@@ -195,7 +195,13 @@ func (h *PhotoHandler) confirmBatchItem(
 		return models.Photo{}, errors.New("gagal menyimpan metadata foto")
 	}
 
-	if !worker.Enqueue(worker.Job{PhotoID: photo.ID, Key: photo.StorageKey}) {
+	if !worker.Enqueue(worker.Job{
+		PhotoID:   photo.ID,
+		EventID:   photo.EventID,
+		Key:       photo.StorageKey,
+		Uploader:  photo.Uploader,
+		CreatedAt: photo.CreatedAt,
+	}) {
 		log.Printf("antrean penuh, foto %s belum diproses", photo.ID.Hex())
 	}
 

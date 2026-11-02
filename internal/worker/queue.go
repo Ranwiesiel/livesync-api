@@ -1,11 +1,18 @@
 package worker
 
-import "go.mongodb.org/mongo-driver/v2/bson"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
 
 // Job adalah satu foto yang menunggu diproses.
 type Job struct {
-	PhotoID bson.ObjectID
-	Key     string
+	PhotoID   bson.ObjectID
+	EventID   bson.ObjectID
+	Key       string
+	Uploader  string
+	CreatedAt time.Time
 }
 
 // JobQueue menampung tugas. Buffered supaya request HTTP tidak menunggu worker.

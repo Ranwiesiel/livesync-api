@@ -197,7 +197,13 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 
 	// Metadata awal sudah tersimpan; thumbnail dibuat di latar belakang supaya
 	// React tidak menunggu proses gambar.
-	if !worker.Enqueue(worker.Job{PhotoID: photo.ID, Key: photo.StorageKey}) {
+	if !worker.Enqueue(worker.Job{
+		PhotoID:   photo.ID,
+		EventID:   photo.EventID,
+		Key:       photo.StorageKey,
+		Uploader:  photo.Uploader,
+		CreatedAt: photo.CreatedAt,
+	}) {
 		log.Printf("antrean penuh, foto %s belum diproses", photo.ID.Hex())
 	}
 

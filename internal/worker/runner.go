@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/Ranwiesiel/livesync-api/internal/broadcast"
 )
 
 // thumbURLTTL sama dengan umur URL foto di handler: 24 jam.
@@ -72,6 +74,41 @@ func (p *Processor) handle(ctx context.Context, job Job) {
 			err,
 		)
 		return
+	}
+
+	originalURL, err := p.storage.PresignGet(ctx, job.Key, thumbURLTTL)
+	if err != nil {
+		log.Printf(
+			"worker: gagal menandatangani foto asli %s: %v",
+			job.Key,
+			err,
+		)
+	}
+
+	eventID := job.EventID.Hex()
+
+	if !broadcast.Publish(broadcast.Event{
+		Type:    broadcast.TypeNewPhoto,
+		EventID: eventID,
+		Payload: broadcast.NewPhotoPayload{
+			Photo: broadcast.NewPhoto{
+				ID:           job.PhotoID.Hex(),
+				EventID:      eventID,
+				StorageKey:   job.Key,
+				URL:          originalURL,
+				ThumbnailURL: thumbURL,
+				BlurHash:     res.BlurHash,
+				Width:        res.Width,
+				Height:       res.Height,
+				Uploader:     job.Uploader,
+				CreatedAt:    job.CreatedAt,
+			},
+		},
+	}) {
+		log.Printf(
+			"worker: channel broadcast penuh, event foto %s dilewati",
+			job.PhotoID.Hex(),
+		)
 	}
 
 	log.Printf("worker: foto %s berhasil diproses", job.PhotoID.Hex())

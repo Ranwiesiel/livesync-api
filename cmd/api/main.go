@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	"github.com/Ranwiesiel/livesync-api/internal/broadcast"
 	"github.com/Ranwiesiel/livesync-api/internal/config"
 	"github.com/Ranwiesiel/livesync-api/internal/database"
 	"github.com/Ranwiesiel/livesync-api/internal/handlers"
@@ -60,7 +61,7 @@ func main() {
 	validateEvent := func(
 		r *http.Request,
 		code string,
-	) (bool, error) {
+	) (string, error) {
 		var event bson.M
 
 		err := events.FindOne(
@@ -72,14 +73,19 @@ func main() {
 		).Decode(&event)
 
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return false, nil
+			return "", nil
 		}
 
 		if err != nil {
-			return false, err
+			return "", err
 		}
 
-		return true, nil
+		id, ok := event["_id"].(bson.ObjectID)
+		if !ok {
+			return "", fmt.Errorf("event %s tidak punya _id", code)
+		}
+
+		return id.Hex(), nil
 	}
 
 	// Buat WebSocket handler menggunakan konfigurasi CORS proyek.
@@ -130,6 +136,9 @@ func main() {
 	// inisialisasi 10 detik di atas kedaluwarsa.
 	workerCtx, stopWorkers := context.WithCancel(context.Background())
 	defer stopWorkers()
+
+	// Bridge: event dari worker (atau modul lain) → Hub WebSocket.
+	go websocket.RunBridge(workerCtx, wsHub, broadcast.Events)
 
 	processor.Run(workerCtx, 4)
 	log.Println("Worker gambar berjalan: 4 goroutine")
