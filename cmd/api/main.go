@@ -1,19 +1,22 @@
-
 package main
 
 import (
 	"context"
-	"log"
-	"time"
+	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/Ranwiesiel/livesync-api/internal/config"
 	"github.com/Ranwiesiel/livesync-api/internal/database"
 	"github.com/Ranwiesiel/livesync-api/internal/handlers"
 	"github.com/Ranwiesiel/livesync-api/internal/router"
 	"github.com/Ranwiesiel/livesync-api/internal/services"
+	"github.com/Ranwiesiel/livesync-api/internal/websocket"
 	"github.com/Ranwiesiel/livesync-api/internal/worker"
 )
 
@@ -42,6 +45,49 @@ func main() {
 	}
 
 	photos := db.Collection("photos")
+	events := db.Collection("events")
+
+	// Inisialisasi WebSocket Hub satu kali.
+	wsHub := websocket.NewHub()
+
+	// Jalankan event loop Hub.
+	go wsHub.Run()
+
+	log.Println("WebSocket Hub siap")
+
+	// Validator memastikan event tersedia dan masih aktif
+	// sebelum koneksi WebSocket diterima.
+	validateEvent := func(
+		r *http.Request,
+		code string,
+	) (bool, error) {
+		var event bson.M
+
+		err := events.FindOne(
+			r.Context(),
+			bson.M{
+				"code":      code,
+				"is_active": true,
+			},
+		).Decode(&event)
+
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, nil
+		}
+
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	// Buat WebSocket handler menggunakan konfigurasi CORS proyek.
+	wsHandler := websocket.NewHandler(
+		wsHub,
+		validateEvent,
+		cfg.CORSOrigins,
+	)
 
 	photoHandler := handlers.NewPhotoHandler(
 		photos,
@@ -92,6 +138,7 @@ func main() {
 		handlers.NewEventHandler(db.Collection("events")),
 		handlers.NewStorageHandler(store),
 		photoHandler,
+		wsHandler,
 		cfg.CORSOrigins,
 	)
 

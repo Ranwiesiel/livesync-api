@@ -1,19 +1,31 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/Ranwiesiel/livesync-api/internal/handlers"
 	"github.com/Ranwiesiel/livesync-api/internal/middleware"
 )
 
-// New merakit engine Gin beserta seluruh route aplikasi.
-//
-// Ini satu-satunya tempat daftar endpoint terlihat utuh. Handler tidak perlu
-// tahu prefix URL-nya, dan main tidak perlu tahu route apa pun.
-func New(event *handlers.EventHandler, storage *handlers.StorageHandler, photo *handlers.PhotoHandler, corsOrigins []string) *gin.Engine {
+func New(
+	event *handlers.EventHandler,
+	storage *handlers.StorageHandler,
+	photo *handlers.PhotoHandler,
+	ws http.Handler,
+	corsOrigins []string,
+) *gin.Engine {
 	r := gin.New()
-	r.Use(middleware.CORS(corsOrigins), gin.Logger(), gin.Recovery())
+
+	r.Use(
+		middleware.CORS(corsOrigins),
+		gin.Logger(),
+		gin.Recovery(),
+	)
+
+	// WebSocket berada di luar prefix /api.
+	r.GET("/ws/events/:code", gin.WrapH(ws))
 
 	api := r.Group("/api")
 	{
