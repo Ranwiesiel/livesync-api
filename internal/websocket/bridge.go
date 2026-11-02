@@ -19,13 +19,15 @@ func RunBridge(ctx context.Context, hub *Hub, events <-chan broadcast.Event) {
 				return
 			}
 
-			data, err := broadcast.Encode(event)
+			// Hanya room event terkait yang menerima pesan ini.
+			err := hub.BroadcastToRoom(event.EventID, broadcast.Message{
+				Type:    event.Type,
+				EventID: event.EventID,
+				Payload: event.Payload,
+			})
 			if err != nil {
-				log.Printf("websocket: encode event %s: %v", event.Type, err)
-				continue
+				log.Printf("websocket: broadcast %s: %v", event.Type, err)
 			}
-
-			hub.Broadcast(event.EventID, data)
 		}
 	}
 }

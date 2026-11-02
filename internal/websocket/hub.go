@@ -1,7 +1,10 @@
-
 package websocket
 
-import "sync"
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+)
 
 // BroadcastMessage berisi pesan yang akan dikirim ke satu room.
 type BroadcastMessage struct {
@@ -49,7 +52,6 @@ func (h *Hub) Run() {
 		case client := <-h.unregister:
 			h.removeClient(client)
 
-		
 		case message := <-h.broadcast:
 			var slowClients []*Client
 
@@ -97,6 +99,18 @@ func (h *Hub) Broadcast(eventID string, data []byte) {
 		EventID: eventID,
 		Data:    data,
 	}
+}
+
+// BroadcastToRoom mengirim message ke semua client di room eventID.
+// Room lain tidak menerima apa pun.
+func (h *Hub) BroadcastToRoom(eventID string, message any) error {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("websocket: encode pesan: %w", err)
+	}
+
+	h.Broadcast(eventID, data)
+	return nil
 }
 
 // RoomSize mengembalikan jumlah koneksi dalam suatu room.
