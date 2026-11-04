@@ -19,6 +19,12 @@ func RunBridge(ctx context.Context, hub *Hub, events <-chan broadcast.Event) {
 				return
 			}
 
+			log.Printf(
+				"[BRIDGE] Meneruskan event: type=%s event=%s",
+				event.Type,
+				event.EventID,
+			)
+
 			// Hanya room event terkait yang menerima pesan ini.
 			err := hub.BroadcastToRoom(event.EventID, broadcast.Message{
 				Type:    event.Type,
