@@ -1,4 +1,3 @@
-
 package handlers
 
 import (
@@ -7,9 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -106,6 +105,14 @@ func signPhotoURLs(
 	return nil
 }
 
+func initialPhotoStatus(strictModeration bool) models.PhotoStatus {
+	if strictModeration {
+		return models.PhotoStatusPending
+	}
+
+	return models.PhotoStatusApproved
+}
+
 // POST /api/media/confirm
 func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 	var req ConfirmPhotoRequest
@@ -138,7 +145,7 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	var event bson.M
+	var event models.Event
 	err = h.events.FindOne(ctx, bson.D{
 		{Key: "_id", Value: eventID},
 	}).Decode(&event)
@@ -187,6 +194,7 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 		BlurHash:   req.BlurHash,
 		Uploader:   req.Uploader,
 		CreatedAt:  time.Now().UTC(),
+		Status:     initialPhotoStatus(event.StrictModeration),
 	}
 
 	if _, err := h.photos.InsertOne(ctx, photo); err != nil {
@@ -209,7 +217,6 @@ func (h *PhotoHandler) ConfirmPhoto(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, photo)
 }
-
 
 const (
 	defaultPhotoLimit = int64(20)
@@ -246,6 +253,7 @@ func (h *PhotoHandler) GetEventPhotos(c *gin.Context) {
 
 	filter := bson.D{
 		{Key: "event_id", Value: eventID},
+		{Key: "status", Value: models.PhotoStatusApproved},
 	}
 
 	if rawCursor := c.Query("cursor"); rawCursor != "" {
@@ -284,7 +292,7 @@ func (h *PhotoHandler) GetEventPhotos(c *gin.Context) {
 		filter,
 		options.Find().
 			SetSort(bson.D{{Key: "_id", Value: -1}}).
-			SetLimit(limit + 1),
+			SetLimit(limit+1),
 	)
 	if err != nil {
 		response.Failure(c, http.StatusInternalServerError, "Gagal mengambil foto event")

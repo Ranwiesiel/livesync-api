@@ -8,6 +8,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+type PhotoStatus string
+
+const (
+	PhotoStatusPending  PhotoStatus = "pending"
+	PhotoStatusApproved PhotoStatus = "approved"
+	PhotoStatusRejected PhotoStatus = "rejected"
+	PhotoStatusHidden   PhotoStatus = "hidden"
+)
+
 // CameraModelName menggabungkan produsen dan model kamera.
 func (e *EXIFMetadata) CameraModelName() string {
 	if e == nil {
@@ -51,4 +60,5 @@ type Photo struct {
 	Uploader     string        `bson:"uploader" json:"uploader"`
 	CreatedAt    time.Time     `bson:"created_at" json:"created_at"`
 	EXIF         *EXIFMetadata `bson:"exif,omitempty" json:"exif,omitempty"`
+	Status       PhotoStatus   `bson:"status" json:"status"`
 }

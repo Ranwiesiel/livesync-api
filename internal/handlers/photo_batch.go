@@ -120,14 +120,17 @@ func (h *PhotoHandler) ConfirmBatch(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 
+	var event models.Event
+
 	err = h.events.FindOne(ctx, bson.D{
 		{Key: "_id", Value: eventID},
-	}).Err()
+	}).Decode(&event)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		response.Failure(c, http.StatusNotFound, "Event tidak ditemukan")
 		return
 	}
+
 	if err != nil {
 		response.Failure(c, http.StatusInternalServerError, "Gagal memeriksa event")
 		return
@@ -139,7 +142,7 @@ func (h *PhotoHandler) ConfirmBatch(c *gin.Context) {
 	}
 
 	for _, item := range plan.Items {
-		photo, err := h.confirmBatchItem(ctx, eventID, plan.Uploader, item)
+		photo, err := h.confirmBatchItem(ctx, eventID, plan.Uploader, item, event.StrictModeration)
 		if err != nil {
 			result.Failed = append(result.Failed, BatchPhotoFailure{
 				StorageKey: item.StorageKey,
@@ -162,6 +165,7 @@ func (h *PhotoHandler) confirmBatchItem(
 	eventID bson.ObjectID,
 	uploader string,
 	item BatchPhotoItem,
+	strictModeration bool,
 ) (models.Photo, error) {
 	signedURL, err := h.storage.PresignGet(ctx, item.StorageKey, photoURLTTL)
 	if err != nil {
@@ -189,6 +193,7 @@ func (h *PhotoHandler) confirmBatchItem(
 		BlurHash:   item.BlurHash,
 		Uploader:   uploader,
 		CreatedAt:  time.Now().UTC(),
+		Status:     initialPhotoStatus(strictModeration),
 	}
 
 	if _, err := h.photos.InsertOne(ctx, photo); err != nil {
